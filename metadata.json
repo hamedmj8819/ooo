@@ -1,0 +1,6 @@
+{
+  "name": "سامانه مدیریت تولید و برنامه‌ریزی کارخانه کمپرسور (MES)",
+  "description": "سامانه تحت شبکه داخلی و آفلاین مدیریت تولید، صدور دستور ساخت، مدیریت نقشه‌ها، پیش‌فاکتورها و مانیتورینگ زنده ماشین‌آلات",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
