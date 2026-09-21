@@ -29,8 +29,8 @@ export const CadViewerModal: React.FC<CadViewerModalProps> = ({
   onClose
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const angleRef = useRef(25);
   const [wireframe, setWireframe] = useState(false);
-  const [rotationAngle, setRotationAngle] = useState(25);
   const [isRotating, setIsRotating] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [activeTab, setActiveTab] = useState<'3d_cad' | 'drawing_pdf'>('3d_cad');
@@ -43,13 +43,11 @@ export const CadViewerModal: React.FC<CadViewerModalProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let angle = rotationAngle;
-
     const render = () => {
       if (isRotating) {
-        angle = (angle + 0.5) % 360;
-        setRotationAngle(angle);
+        angleRef.current = (angleRef.current + 0.5) % 360;
       }
+      const angle = angleRef.current;
 
       const w = canvas.width;
       const h = canvas.height;
@@ -194,7 +192,7 @@ export const CadViewerModal: React.FC<CadViewerModalProps> = ({
     render();
 
     return () => cancelAnimationFrame(animId);
-  }, [rotationAngle, isRotating, zoomLevel, wireframe, doc]);
+  }, [isRotating, zoomLevel, wireframe, doc]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in">

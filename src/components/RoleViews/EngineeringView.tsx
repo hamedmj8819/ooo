@@ -87,7 +87,7 @@ export const EngineeringView: React.FC<EngineeringViewProps> = ({
   const [selectedOrderId, setSelectedOrderId] = useState<string>(orders[0]?.id || '');
   const [stageNumberInput, setStageNumberInput] = useState<number>(1);
   const [stageNameInput, setStageNameInput] = useState<string>('مرحله ۱: تراشکاری اولیه و سنترگیری');
-  const [drawingNumberInput, setDrawingNumberInput] = useState<string>('DWG-ENG-' + Math.floor(1000 + Math.random() * 9000));
+  const [drawingNumberInput, setDrawingNumberInput] = useState<string>(() => 'DWG-ENG-' + Math.floor(1000 + Math.random() * 9000));
   const [drawingFileNameInput, setDrawingFileNameInput] = useState<string>('Blueprint-RevA.pdf');
   const [stepFileNameInput, setStepFileNameInput] = useState<string>('SolidModel-Stage.step');
   const [engNotesInput, setEngNotesInput] = useState<string>('');
@@ -114,13 +114,11 @@ export const EngineeringView: React.FC<EngineeringViewProps> = ({
   const [partMasterStep, setPartMasterStep] = useState<string>(selectedPart?.defaultStepFileName || '');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
-  // Keep master drawing inputs synced when selected part changes
-  React.useEffect(() => {
-    if (selectedPart) {
-      setPartMasterDwg(selectedPart.defaultDrawingName || '');
-      setPartMasterStep(selectedPart.defaultStepFileName || '');
-    }
-  }, [selectedPartId]);
+  const handleSelectPart = (p: PartDefinition) => {
+    setSelectedPartId(p.id);
+    setPartMasterDwg(p.defaultDrawingName || '');
+    setPartMasterStep(p.defaultStepFileName || '');
+  };
 
   // Filter parts for master catalog
   const filteredParts = parts.filter(p => {
@@ -380,7 +378,7 @@ export const EngineeringView: React.FC<EngineeringViewProps> = ({
                   return (
                     <div
                       key={p.id}
-                      onClick={() => setSelectedPartId(p.id)}
+                      onClick={() => handleSelectPart(p)}
                       className={`p-3.5 rounded-2xl cursor-pointer border transition text-xs space-y-2 ${
                         isSelected
                           ? 'bg-emerald-950/40 border-emerald-500/70 shadow-lg ring-1 ring-emerald-500/30 text-white'

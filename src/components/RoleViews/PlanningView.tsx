@@ -4,7 +4,11 @@ import {
   MachineTool,
   FoundryPartner,
   CompressorModel,
-  PartDefinition
+  PartDefinition,
+  CreateOrderParams,
+  CreateQuoteParams,
+  StageEngineeringDoc,
+  Priority
 } from '../../types';
 import { WorkflowStepper } from '../WorkflowStepper';
 import { MachineStatusGrid } from '../MachineStatusGrid';
@@ -34,10 +38,10 @@ interface PlanningViewProps {
   foundries: FoundryPartner[];
   models: CompressorModel[];
   parts: PartDefinition[];
-  onAddQuote: (orderId: string, quoteData: any) => void;
+  onAddQuote: (orderId: string, quoteData: CreateQuoteParams) => void;
   onMaterialReceivedAndIssuePO: (orderId: string) => void;
-  onCreateOrder: (params: any) => void;
-  onOpenCadViewer: (doc: any, partName: string, orderNumber: string) => void;
+  onCreateOrder: (params: CreateOrderParams) => void;
+  onOpenCadViewer: (doc: StageEngineeringDoc, partName: string, orderNumber: string) => void;
   onReportBreakdown: (machineId: string, reason: string) => void;
   onResolveBreakdown: (machineId: string) => void;
   onHandoverToWarehouse?: (orderId: string, quantity?: number, isSemiFinished?: boolean) => void;
@@ -64,7 +68,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   // Modal for registering a new quote from foundry/supplier
   const [quoteModalOrderId, setQuoteModalOrderId] = useState<string | null>(null);
   const [supplierName, setSupplierName] = useState('');
-  const [supplierType, setSupplierType] = useState<'foundry' | 'raw_material' | 'outsourcing'>('foundry');
+  const [supplierType, setSupplierType] = useState<'foundry' | 'raw_material' | 'outsourcing' | 'importer'>('foundry');
   const [quoteAmount, setQuoteAmount] = useState<number>(1200000000);
   const [deliveryDays, setDeliveryDays] = useState<number>(12);
   const [quoteNotes, setQuoteNotes] = useState('');
@@ -79,12 +83,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   const [orderDeadline, setOrderDeadline] = useState('۱۴۰۳/۰۷/۲۰');
 
   const availableParts = parts.filter(p => p.machineModelId === selectedModelId);
-
-  React.useEffect(() => {
-    if (availableParts.length > 0 && (!selectedPartId || !availableParts.some(p => p.id === selectedPartId))) {
-      setSelectedPartId(availableParts[0].id);
-    }
-  }, [selectedModelId, availableParts]);
+  const effectivePartId = availableParts.some(p => p.id === selectedPartId) ? selectedPartId : (availableParts[0]?.id || '');
 
   const handleAddQuoteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +104,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   const handleCreateOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const selModel = models.find(m => m.id === selectedModelId);
-    const selPart = parts.find(p => p.id === selectedPartId);
+    const selPart = parts.find(p => p.id === effectivePartId);
     if (!selModel || !selPart) return;
 
     onCreateOrder({
@@ -542,7 +541,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   <label className="block text-xs font-medium text-slate-300 mb-1">نوع تامین:</label>
                   <select
                     value={supplierType}
-                    onChange={(e) => setSupplierType(e.target.value as any)}
+                    onChange={(e) =>
+                      setSupplierType(
+                        e.target.value as 'foundry' | 'raw_material' | 'outsourcing' | 'importer'
+                      )
+                    }
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white"
                   >
                     <option value="foundry">ریخته‌گری چدن / برنز</option>
@@ -657,7 +660,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">انتخاب قطعه از BOM:</label>
                 <select
-                  value={selectedPartId}
+                  value={effectivePartId}
                   onChange={(e) => setSelectedPartId(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white"
                 >
@@ -682,7 +685,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   <label className="block text-xs font-medium text-slate-300 mb-1">اولویت:</label>
                   <select
                     value={orderPriority}
-                    onChange={(e) => setOrderPriority(e.target.value as any)}
+                    onChange={(e) => setOrderPriority(e.target.value as Priority)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-xs text-white font-bold"
                   >
                     <option value="normal">عادی</option>

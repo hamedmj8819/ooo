@@ -194,16 +194,16 @@ export const MachineStatusGrid: React.FC<MachineStatusGridProps> = ({
                     <div className="w-14 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                       <div
                         className={`h-full ${
-                          machine.healthPercent > 80
+                          (machine.healthPercent ?? 100) > 80
                             ? 'bg-emerald-500'
-                            : machine.healthPercent > 60
+                            : (machine.healthPercent ?? 100) > 60
                             ? 'bg-amber-500'
                             : 'bg-rose-500'
                         }`}
-                        style={{ width: `${machine.healthPercent}%` }}
+                        style={{ width: `${machine.healthPercent ?? 100}%` }}
                       />
                     </div>
-                    <span className="font-mono text-[10px] text-slate-300">{machine.healthPercent}%</span>
+                    <span className="font-mono text-[10px] text-slate-300">{machine.healthPercent ?? 100}%</span>
                   </div>
                 </div>
               </div>

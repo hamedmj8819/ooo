@@ -42,7 +42,7 @@ export const PersianDateTimePickerModal: React.FC<PersianDateTimePickerModalProp
   let initMinute = Math.floor(current.minute / 5) * 5;
 
   if (initialValue) {
-    const matches = initialValue.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    const matches = initialValue.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
     if (matches) {
       initYear = parseInt(matches[1], 10);
       initMonth = parseInt(matches[2], 10);

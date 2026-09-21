@@ -26,6 +26,23 @@ export type MachineStatus = 'active' | 'idle' | 'breakdown' | 'maintenance';
 
 export type MachineType = 'internal' | 'outsourced';
 
+export type DowntimeCategory =
+  | 'mechanical'
+  | 'electrical'
+  | 'tooling'
+  | 'hydraulic'
+  | 'software_cnc'
+  | 'operator_error'
+  | 'other';
+
+export type MaintenanceType =
+  | 'daily'
+  | 'weekly'
+  | 'monthly'
+  | 'quarterly'
+  | 'annual'
+  | 'overhaul';
+
 export interface MachineTool {
   id: string;
   name: string;
@@ -43,20 +60,85 @@ export interface MachineTool {
   location: string;
   specifications: string;
   lastMaintenanceDate: string;
-  healthPercent: number;
+  healthPercent?: number;
+  totalDowntimeMinutes30Days?: number;
+  downtimeCount30Days?: number;
+  mttrMinutes?: number;
+  mtbfHours?: number;
+  nextMaintenanceDate?: string;
+  activeDowntimeId?: string;
+  image?: string;
+  imageUrl?: string;
+}
+
+export interface DowntimeEvent {
+  id: string;
+  machineId: string;
+  machineName?: string;
+  machineCode?: string;
+  orderId?: string;
+  stageNumber?: number;
+  startTime: string;
+  endTime?: string;
+  durationMinutes?: number;
+  reason: string;
+  category: DowntimeCategory;
+  reportedBy: string;
+  reportedById?: string;
+  resolvedBy?: string;
+  resolvedById?: string;
+  repairNotes?: string;
+  sparePartsUsed?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MaintenancePlan {
+  id: string;
+  machineId: string;
+  machineName?: string;
+  machineCode?: string;
+  title: string;
+  type: MaintenanceType;
+  scheduledDate: string;
+  completedDate?: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'overdue';
+  checklist: string[];
+  technicianName?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StageEvent {
+  id: string;
+  orderId: string;
+  stageNumber: number;
+  eventType: 'assigned' | 'started' | 'paused' | 'resumed' | 'completed' | 'transferred' | 'rework_assigned';
+  timestamp: string;
+  machineId?: string;
+  machineName?: string;
+  operatorId?: string;
+  operatorName?: string;
+  reason?: string;
+  details?: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface SystemUser {
   id: string;
   username: string;
-  password: string;
+  password?: string;
   fullName: string;
   role: UserRole;
   department: string;
   personnelCode: string;
   phone?: string;
   isActive: boolean;
+  mustChangePassword?: boolean;
+  operatorId?: string;
   createdAt: string;
+  updatedAt?: string;
   lastLogin?: string;
 }
 
@@ -91,6 +173,8 @@ export interface PartDefinition {
   defaultStepFileName?: string;
   supplierName?: string;
   notes?: string;
+  image?: string;
+  imageUrl?: string;
 }
 
 export interface CompressorModel {
@@ -105,6 +189,7 @@ export interface CompressorModel {
   coolingType: string;
   description: string;
   image?: string;
+  imageUrl?: string;
   partsCount: number;
   inHouseRatio: number; // e.g. 80
 }
@@ -183,9 +268,18 @@ export interface StageExecutionProgress {
   machineToolName?: string;
   operatorId?: string;
   operatorName?: string;
-  status: 'not_started' | 'in_progress' | 'qc_pending' | 'engineering_qc_pending' | 'completed' | 'qc_rejected';
+  status: 'not_started' | 'assigned' | 'in_progress' | 'paused' | 'qc_pending' | 'engineering_qc_pending' | 'completed' | 'qc_rejected' | 'rework';
   startTime?: string;
   endTime?: string;
+  assignedAt?: string;
+  startedAt?: string;
+  pausedAt?: string;
+  resumedAt?: string;
+  finishedAt?: string;
+  actualWorkingMinutes?: number;
+  totalPauseMinutes?: number;
+  pauseReason?: string;
+  operatorNotes?: string;
   plannedQty: number;
   producedQty: number;
   scrapQty: number;
@@ -196,6 +290,17 @@ export interface StageExecutionProgress {
   engineeringApproval?: StageEngineeringApproval;
   isOutsourced?: boolean;
   outsourcedVendorName?: string;
+  contractorName?: string;
+  sentDate?: string;
+  expectedReturnDate?: string;
+  parallelGroup?: number;
+  reworkNotes?: string;
+  reworkAssignedMachineId?: string;
+  reworkAssignedOperatorId?: string;
+  reworkCount?: number;
+  estimatedMinutes?: number;
+  overrideCategoryReason?: string;
+  events?: StageEvent[];
 }
 
 export type OrderStatus =
@@ -213,6 +318,40 @@ export type OrderStatus =
   | 'awaiting_planning_handover'// ترخیص نهایی توسط QC و مهندسی - در انتظار صدور رسید و تحویل به انبار توسط برنامه‌ریزی
   | 'completed'                 // تحویل نهایی به انبار
   | 'semi_finished_stored';     // تحویل نیمه‌ساخته به انبار
+
+export interface CreateOrderParams {
+  title?: string;
+  isCustomOrder?: boolean;
+  compressorModelId?: string;
+  compressorModelName?: string;
+  partId?: string;
+  partName?: string;
+  partNumber?: string;
+  quantity: number;
+  priority: Priority;
+  deadlineDate: string;
+  notes?: string;
+  createdByRole?: UserRole;
+  createdByName?: string;
+  customDetails?: {
+    partName: string;
+    application: string;
+    material: string;
+    technicalSpecs: string;
+    sampleProvided: boolean;
+  };
+}
+
+export interface CreateQuoteParams {
+  supplierName: string;
+  supplierType: 'foundry' | 'raw_material' | 'outsourcing' | 'importer';
+  amountRials: number;
+  deliveryTimeDays: number;
+  attachmentFileName?: string;
+  attachmentFileType?: string;
+  notes?: string;
+  submittedBy?: string;
+}
 
 export interface ProductionOrder {
   id: string; // e.g. PO-1403-088
@@ -259,6 +398,9 @@ export interface OperatorProfile {
   shift: 'morning' | 'evening' | 'night';
   totalPartsProducedToday: number;
   status: 'working' | 'idle' | 'on_break';
+  image?: string;
+  imageUrl?: string;
+  avatarUrl?: string;
 }
 
 export interface FoundryPartner {
@@ -270,6 +412,9 @@ export interface FoundryPartner {
   capabilities: string[];
   qualityRating: number;
   activeOrdersCount: number;
+  image?: string;
+  imageUrl?: string;
+  logoUrl?: string;
 }
 
 export interface SystemNotification {
@@ -292,4 +437,31 @@ export interface WarehouseItem {
   unit: string;
   shelfLocation: string;
   lastUpdated: string;
+}
+
+export interface StockMovement {
+  id: string;
+  itemId: string;
+  orderId?: string;
+  movementType: 'in' | 'out' | 'adjustment' | 'scrap';
+  quantity: number;
+  referenceNumber?: string;
+  notes?: string;
+  performedBy: string;
+  createdAt: string;
+}
+
+export interface AuditLogItem {
+  id: number;
+  timestamp: string;
+  userId?: string;
+  userName?: string;
+  userRole?: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  oldValue?: Record<string, unknown> | null;
+  newValue?: Record<string, unknown> | null;
+  details?: Record<string, unknown> | null;
+  ipAddress?: string;
 }

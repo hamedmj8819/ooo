@@ -1,23 +1,31 @@
-import React, { useState } from 'react';
-import { useMESStore } from './data/store';
+import React, { useState, Suspense, lazy } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './features/auth/AuthContext';
+import { useRealtimeSSE } from './hooks/useRealtimeSSE';
 import { Header } from './components/Header';
 import { LoginScreen } from './components/LoginScreen';
-import { CeoView } from './components/RoleViews/CeoView';
-import { PlanningView } from './components/RoleViews/PlanningView';
-import { EngineeringView } from './components/RoleViews/EngineeringView';
-import { ProductionView } from './components/RoleViews/ProductionView';
-import { OperatorView } from './components/RoleViews/OperatorView';
-import { SuperAdminView } from './components/RoleViews/SuperAdminView';
-import { WarehouseView } from './components/RoleViews/WarehouseView';
-import { QCView } from './components/RoleViews/QCView';
 import { CadViewerModal } from './components/CadViewerModal';
-import { StageEngineeringDoc } from './types';
-import { WifiOff, Server, HardDrive, ShieldCheck } from 'lucide-react';
+import { ProtectedRoute } from './components/common/ProtectedRoute';
+import { LoadingState } from './components/common/LoadingState';
+import { ShieldCheck } from 'lucide-react';
+import type { StageEngineeringDoc } from './types';
+
+const CeoPage = lazy(() => import('./features/admin/pages/CeoPage').then((m) => ({ default: m.CeoPage })));
+const PlanningPage = lazy(() => import('./features/orders/pages/PlanningPage').then((m) => ({ default: m.PlanningPage })));
+const EngineeringPage = lazy(() => import('./features/engineering/pages/EngineeringPage').then((m) => ({ default: m.EngineeringPage })));
+const QCPage = lazy(() => import('./features/qc/pages/QCPage').then((m) => ({ default: m.QCPage })));
+const ProductionPage = lazy(() => import('./features/production/pages/ProductionPage').then((m) => ({ default: m.ProductionPage })));
+const OperatorPage = lazy(() => import('./features/operator/pages/OperatorPage').then((m) => ({ default: m.OperatorPage })));
+const WarehousePage = lazy(() => import('./features/warehouse/pages/WarehousePage').then((m) => ({ default: m.WarehousePage })));
+const SuperAdminPage = lazy(() => import('./features/admin/pages/SuperAdminPage').then((m) => ({ default: m.SuperAdminPage })));
 
 export default function App() {
-  const store = useMESStore();
+  const { currentUser, isAuthLoading, currentUserRole, login, changePassword } = useAuth();
 
-  // State for Global CAD 3D / Blueprint Viewer modal
+  // Real-time Server-Sent Events (SSE) listener for live notifications and updates
+  useRealtimeSSE(Boolean(currentUser));
+
+  // Global CAD 3D / Blueprint Viewer modal state
   const [cadModalData, setCadModalData] = useState<{
     doc: StageEngineeringDoc;
     partName: string;
@@ -28,145 +36,130 @@ export default function App() {
     setCadModalData({ doc, partName, orderNumber });
   };
 
-  // If user is not authenticated, show full-screen login screen
-  if (!store.currentUser) {
-    return (
-      <LoginScreen
-        users={store.users}
-        onLogin={store.login}
-      />
-    );
+  const handleLogin = async (u: string, p: string) => {
+    try {
+      const user = await login(u, p);
+      return { success: true, mustChangePassword: user.mustChangePassword };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'نام کاربری یا کلمه عبور اشتباه است.';
+      return { success: false, message: msg };
+    }
+  };
+
+  if (isAuthLoading) {
+    return <LoadingState message="در حال بررسی نشست امن کاربر..." />;
+  }
+
+  if (!currentUser) {
+    return <LoginScreen onLogin={handleLogin} onChangePassword={changePassword} />;
   }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
-      
       {/* Top Application Bar */}
-      <Header
-        currentRole={store.currentUserRole}
-        onRoleChange={store.setCurrentUserRole}
-        currentUser={store.currentUser}
-        onLogout={store.logout}
-        notifications={store.notifications}
-        onMarkNotificationAsRead={store.markNotificationAsRead}
-        onMarkAllNotificationsAsRead={store.markAllNotificationsAsRead}
-        onExportJson={store.exportDatabase}
-        onImportJson={store.importDatabase}
-        onResetDefaults={store.resetFactoryData}
-      />
+      <Header />
 
-      {/* Main Role Content View */}
+      {/* Main Content Area with Protected Routes */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        
-        {store.currentUserRole === 'super_admin' && (
-          <SuperAdminView
-            models={store.models}
-            machines={store.machines}
-            parts={store.parts}
-            foundries={store.foundries}
-            operators={store.operators}
-            users={store.users}
-            onAddModel={store.addModel}
-            onAddMachine={store.addMachine}
-            onAddFoundry={store.addFoundry}
-            onAddPart={store.addPart}
-            onAddOperator={store.addOperator}
-            onAddUser={store.addUser}
-            onUpdateUser={store.updateUser}
-            onDeleteUser={store.deleteUser}
-            onExportDatabase={store.exportDatabase}
-            onImportDatabase={store.importDatabase}
-            onResetFactoryData={store.resetFactoryData}
-          />
-        )}
+        <Suspense fallback={<LoadingState message="در حال بارگذاری بخش انتخابی..." />}>
+          <Routes>
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={['super_admin']}>
+                  <SuperAdminPage />
+                </ProtectedRoute>
+              }
+            />
 
-        {store.currentUserRole === 'ceo' && (
-          <CeoView
-            models={store.models}
-            parts={store.parts}
-            orders={store.orders}
-            machines={store.machines}
-            onCreateOrder={store.createOrder}
-            onDecideQuote={store.decideQuote}
-            onOpenCadViewer={handleOpenCadViewer}
-          />
-        )}
+            <Route
+              path="/ceo"
+              element={
+                <ProtectedRoute allowedRoles={['ceo', 'super_admin']}>
+                  <CeoPage />
+                </ProtectedRoute>
+              }
+            />
 
-        {store.currentUserRole === 'planning' && (
-          <PlanningView
-            orders={store.orders}
-            machines={store.machines}
-            foundries={store.foundries}
-            models={store.models}
-            parts={store.parts}
-            onAddQuote={store.addQuoteToOrder}
-            onMaterialReceivedAndIssuePO={store.markMaterialReceivedAndIssuePO}
-            onCreateOrder={store.createOrder}
-            onOpenCadViewer={handleOpenCadViewer}
-            onReportBreakdown={store.reportMachineBreakdown}
-            onResolveBreakdown={store.resolveMachineBreakdown}
-            onHandoverToWarehouse={store.handoverToWarehouse}
-          />
-        )}
+            <Route
+              path="/planning"
+              element={
+                <ProtectedRoute allowedRoles={['planning', 'super_admin']}>
+                  <PlanningPage onOpenCadViewer={handleOpenCadViewer} />
+                </ProtectedRoute>
+              }
+            />
 
-        {store.currentUserRole === 'engineering' && (
-          <EngineeringView
-            orders={store.orders}
-            models={store.models}
-            parts={store.parts}
-            machines={store.machines}
-            onUploadDoc={store.uploadEngineeringDoc}
-            onUpdatePartStageDrawings={store.updatePartStageDrawings}
-            onUpdatePartMasterDrawings={store.updatePartMasterDrawings}
-            onOpenCadViewer={handleOpenCadViewer}
-            onApproveQC={store.approveStageByEngineering}
-            onRejectQC={store.rejectStageByEngineering}
-          />
-        )}
+            <Route
+              path="/engineering"
+              element={
+                <ProtectedRoute allowedRoles={['engineering', 'super_admin']}>
+                  <EngineeringPage onOpenCadViewer={handleOpenCadViewer} />
+                </ProtectedRoute>
+              }
+            />
 
-        {store.currentUserRole === 'qc' && (
-          <QCView
-            orders={store.orders}
-            machines={store.machines}
-            parts={store.parts}
-            onSubmitStageQC={store.submitStageQCReport}
-            onOpenCadViewer={handleOpenCadViewer}
-          />
-        )}
+            <Route
+              path="/qc"
+              element={
+                <ProtectedRoute allowedRoles={['qc', 'super_admin']}>
+                  <QCPage />
+                </ProtectedRoute>
+              }
+            />
 
-        {store.currentUserRole === 'production' && (
-          <ProductionView
-            orders={store.orders}
-            machines={store.machines}
-            operators={store.operators}
-            onAssignStage={store.assignStageToMachine}
-            onReportBreakdown={store.reportMachineBreakdown}
-            onResolveBreakdown={store.resolveMachineBreakdown}
-            onApproveQC={store.approveStageQC}
-            onHandoverWarehouse={store.handoverToWarehouse}
-          />
-        )}
+            <Route
+              path="/production"
+              element={
+                <ProtectedRoute allowedRoles={['production', 'super_admin']}>
+                  <ProductionPage />
+                </ProtectedRoute>
+              }
+            />
 
-        {store.currentUserRole === 'operator' && (
-          <OperatorView
-            machines={store.machines}
-            operators={store.operators}
-            orders={store.orders}
-            onFinishStage={store.finishStage}
-            onReportBreakdown={store.reportMachineBreakdown}
-            onResolveBreakdown={store.resolveMachineBreakdown}
-            onOpenCadViewer={handleOpenCadViewer}
-          />
-        )}
+            <Route
+              path="/operator"
+              element={
+                <ProtectedRoute allowedRoles={['operator', 'super_admin']}>
+                  <OperatorPage />
+                </ProtectedRoute>
+              }
+            />
 
-        {store.currentUserRole === 'warehouse' && (
-          <WarehouseView
-            inventory={store.inventory}
-            orders={store.orders}
-            onHandoverReceipt={store.handoverToWarehouse}
-          />
-        )}
+            <Route
+              path="/warehouse"
+              element={
+                <ProtectedRoute allowedRoles={['warehouse', 'super_admin']}>
+                  <WarehousePage />
+                </ProtectedRoute>
+              }
+            />
 
+            {/* Default role-based redirect */}
+            <Route
+              path="*"
+              element={
+                currentUserRole === 'super_admin' ? (
+                  <Navigate to="/admin" replace />
+                ) : currentUserRole === 'ceo' ? (
+                  <Navigate to="/ceo" replace />
+                ) : currentUserRole === 'planning' ? (
+                  <Navigate to="/planning" replace />
+                ) : currentUserRole === 'engineering' ? (
+                  <Navigate to="/engineering" replace />
+                ) : currentUserRole === 'qc' ? (
+                  <Navigate to="/qc" replace />
+                ) : currentUserRole === 'production' ? (
+                  <Navigate to="/production" replace />
+                ) : currentUserRole === 'operator' ? (
+                  <Navigate to="/operator" replace />
+                ) : (
+                  <Navigate to="/warehouse" replace />
+                )
+              }
+            />
+          </Routes>
+        </Suspense>
       </main>
 
       {/* Global CAD 3D Model & 2D Drawing Modal */}
@@ -200,7 +193,6 @@ export default function App() {
           </div>
         </div>
       </footer>
-
     </div>
   );
 }

@@ -3,7 +3,8 @@ import {
   MachineTool,
   OperatorProfile,
   ProductionOrder,
-  StageEngineeringDoc
+  StageEngineeringDoc,
+  StageExecutionProgress
 } from '../../types';
 import {
   Wrench,
@@ -60,7 +61,7 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
 
   // Find the active work order and stage on this machine
   let activeOrder: ProductionOrder | undefined;
-  let activeStage: any;
+  let activeStage: StageExecutionProgress | undefined;
 
   if (currentMachine?.currentWorkOrderId) {
     activeOrder = orders.find(o => o.id === currentMachine.currentWorkOrderId);

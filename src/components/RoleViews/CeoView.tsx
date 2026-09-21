@@ -4,7 +4,10 @@ import {
   PartDefinition,
   ProductionOrder,
   Priority,
-  MachineTool
+  MachineTool,
+  CreateOrderParams,
+  StageEngineeringDoc,
+  Quote
 } from '../../types';
 import { WorkflowStepper } from '../WorkflowStepper';
 import { PersianDateInput } from '../PersianDateTimePicker';
@@ -43,9 +46,9 @@ interface CeoViewProps {
   parts: PartsList;
   orders: ProductionOrder[];
   machines: MachineTool[];
-  onCreateOrder: (params: any) => void;
+  onCreateOrder: (params: CreateOrderParams) => void;
   onDecideQuote: (orderId: string, quoteId: string, decision: 'approved' | 'rejected', reason?: string) => void;
-  onOpenCadViewer: (doc: any, partName: string, orderNumber: string) => void;
+  onOpenCadViewer: (doc: StageEngineeringDoc, partName: string, orderNumber: string) => void;
 }
 
 type PartsList = PartDefinition[];
@@ -91,16 +94,10 @@ export const CeoView: React.FC<CeoViewProps> = ({
 
   // Filter parts for selected model
   const availableParts = parts.filter(p => p.machineModelId === selectedModelId);
-
-  // Set default part when model changes
-  React.useEffect(() => {
-    if (availableParts.length > 0 && (!selectedPartId || !availableParts.some(p => p.id === selectedPartId))) {
-      setSelectedPartId(availableParts[0].id);
-    }
-  }, [selectedModelId, availableParts]);
+  const effectivePartId = availableParts.some(p => p.id === selectedPartId) ? selectedPartId : (availableParts[0]?.id || '');
 
   // Quotes awaiting CEO approval
-  const pendingQuotesList: { order: ProductionOrder; quote: any }[] = [];
+  const pendingQuotesList: { order: ProductionOrder; quote: Quote }[] = [];
   orders.forEach(ord => {
     ord.quotes.forEach(q => {
       if (q.status === 'pending_ceo') {
@@ -114,7 +111,7 @@ export const CeoView: React.FC<CeoViewProps> = ({
 
     if (orderMode === 'standard') {
       const selectedModel = models.find(m => m.id === selectedModelId);
-      const selectedPart = parts.find(p => p.id === selectedPartId);
+      const selectedPart = parts.find(p => p.id === effectivePartId);
       if (!selectedModel || !selectedPart) return;
 
       onCreateOrder({
@@ -448,7 +445,7 @@ export const CeoView: React.FC<CeoViewProps> = ({
                 <YAxis dataKey="name" type="category" stroke="#94a3b8" />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                  formatter={(val: any) => [`${val}%`, 'پیشرفت ساخت']}
+                  formatter={(val) => [`${val}%`, 'پیشرفت ساخت']}
                 />
                 <Bar dataKey="پیشرفت" fill="#06b6d4" radius={[0, 8, 8, 0]} />
               </BarChart>
@@ -671,7 +668,7 @@ export const CeoView: React.FC<CeoViewProps> = ({
                       انتخاب قطعه از فهرست BOM دستگاه:
                     </label>
                     <select
-                      value={selectedPartId}
+                      value={effectivePartId}
                       onChange={(e) => setSelectedPartId(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
                     >
